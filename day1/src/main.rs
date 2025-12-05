@@ -1,6 +1,6 @@
-use std::fs;
-use std::io;
 use std::str::FromStr;
+
+use utils::read_lines;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DirectionType {
@@ -109,11 +109,11 @@ impl Rotation {
     }
 }
 
-fn load_directions(filename: &str) -> Result<Vec<Direction>, io::Error> {
-    let content = fs::read_to_string(filename)?;
+fn load_directions(filename: &str) -> Result<Vec<Direction>, std::io::Error> {
+    let lines = read_lines(filename)?;
     let mut directions = Vec::new();
 
-    for line in content.lines() {
+    for line in lines {
         let line = line.trim();
         if line.is_empty() {
             continue;
@@ -129,9 +129,9 @@ fn load_directions(filename: &str) -> Result<Vec<Direction>, io::Error> {
 }
 
 fn main() {
-    println!("Loading directions from directions.txt");
+    println!("Loading directions from ./inputs/day1.txt");
 
-    match load_directions("directions.txt") {
+    match load_directions("./inputs/day1.txt") {
         Ok(directions) => {
             println!("Successfully loaded {} directions:", directions.len());
 

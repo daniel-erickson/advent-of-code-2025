@@ -1,5 +1,5 @@
-use std::fs;
-use std::io;
+use std::time::Instant;
+use utils::read_input;
 
 #[derive(Debug, Clone)]
 pub struct Id {
@@ -56,8 +56,8 @@ fn parse_range(input: &str) -> Result<(i64, i64), String> {
     Ok((first, second))
 }
 
-fn load_input(filename: &str) -> Result<Vec<Id>, io::Error> {
-    let content = fs::read_to_string(filename)?;
+fn load_input(filename: &str) -> Result<Vec<Id>, std::io::Error> {
+    let content = read_input(filename)?;
     let mut ids = Vec::new();
 
     let ranges = content.split(",");
@@ -83,10 +83,11 @@ fn load_input(filename: &str) -> Result<Vec<Id>, io::Error> {
 }
 
 fn main() {
-    println!("Loading ids from ids.txt");
+    let start = Instant::now();
+    println!("Loading ids from ./inputs/day2.txt");
 
     let mut output: i64 = 0;
-    match load_input("input.txt") {
+    match load_input("./inputs/day2.txt") {
         Ok(ids) => {
             println!("Successfully loaded {} input:", ids.len());
             for id in &ids {
@@ -100,5 +101,7 @@ fn main() {
             eprintln!("Error loading ids: {}", e);
         }
     }
-    println!("total value of invalid inputs {}", output)
+    println!("total value of invalid inputs {}", output);
+    let duration = start.elapsed(); // Calculate the elapsed time
+    println!("Execution time: {:?}", duration);
 }

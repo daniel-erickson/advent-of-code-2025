@@ -1,6 +1,5 @@
-use std::fs;
-use std::io;
 use std::time::Instant;
+use utils::read_lines;
 
 #[derive(Debug, Clone)]
 pub struct BatteryBank {
@@ -62,22 +61,6 @@ impl BatteryBank {
     }
 }
 
-// TODO:: This should be some kind of generic function I keep writing the same helper
-fn load_input(filename: &str) -> Result<Vec<String>, io::Error> {
-    let content = fs::read_to_string(filename)?;
-    let mut lines = Vec::new();
-
-    for line in content.lines() {
-        let line = line.trim();
-        if line.is_empty() {
-            continue;
-        }
-        lines.push(line.to_string());
-    }
-
-    Ok(lines)
-}
-
 fn lines_to_battery_banks(lines: &[String], n: usize) -> Result<Vec<BatteryBank>, String> {
     let mut banks = Vec::new();
 
@@ -98,7 +81,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut two_digit_bank_output: u64 = 0;
     let mut twelve_digit_bank_output: u64 = 0;
 
-    let lines = load_input("input.txt")?;
+    let lines = read_lines("./inputs/day3.txt")?;
 
     // Part A
     match lines_to_battery_banks(&lines, 2) {

@@ -1,0 +1,16 @@
+[workspace]
+resolver = "2"
+members = [
+    "day1",
+    "day2",
+    "day3",
+    "day4",
+    "utils",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+
+[workspace.dependencies]
+# Shared dependencies can go here

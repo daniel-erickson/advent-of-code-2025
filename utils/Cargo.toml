@@ -1,7 +1,6 @@
 [package]
-name = "day2"
+name = "utils"
 version.workspace = true
 edition.workspace = true
 
 [dependencies]
-utils = { path = "../utils" }
