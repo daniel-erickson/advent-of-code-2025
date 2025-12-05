@@ -39,12 +39,12 @@ where
     Some(result)
 }
 
-/// Parse a range string like "3-5" into a tuple (start, end)
-pub fn parse_range_bounds<T: std::str::FromStr>(s: &str) -> Option<(T, T)> {
+/// Parse a range string like "3-5" into a rust range :D
+pub fn parse_range_bounds<T: std::str::FromStr>(s: &str) -> Option<std::ops::RangeInclusive<T>> {
     let (start, end) = s.trim().split_once('-')?;
     let start_num = start.trim().parse::<T>().ok()?;
     let end_num = end.trim().parse::<T>().ok()?;
-    Some((start_num, end_num))
+    Some(start_num..=end_num)
 }
 
 #[derive(Debug, Clone)]
