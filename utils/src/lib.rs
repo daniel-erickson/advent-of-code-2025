@@ -16,6 +16,37 @@ pub fn parse_numbers<T: std::str::FromStr>(s: &str) -> Vec<T> {
         .collect()
 }
 
+/// Parse a range string like "3-5" or "10-100" into a vector of all numbers in the range (inclusive)
+pub fn parse_range<T>(s: &str) -> Option<Vec<T>>
+where
+    T: std::str::FromStr + std::ops::Add<Output = T> + std::cmp::PartialOrd + Copy + From<u8>,
+{
+    let (start, end) = s.trim().split_once('-')?;
+    let start_num = start.trim().parse::<T>().ok()?;
+    let end_num = end.trim().parse::<T>().ok()?;
+
+    if start_num > end_num {
+        return Some(Vec::new());
+    }
+
+    let mut result = Vec::new();
+    let mut current = start_num;
+    let one = T::from(1);
+    while current <= end_num {
+        result.push(current);
+        current = current + one;
+    }
+    Some(result)
+}
+
+/// Parse a range string like "3-5" into a tuple (start, end)
+pub fn parse_range_bounds<T: std::str::FromStr>(s: &str) -> Option<(T, T)> {
+    let (start, end) = s.trim().split_once('-')?;
+    let start_num = start.trim().parse::<T>().ok()?;
+    let end_num = end.trim().parse::<T>().ok()?;
+    Some((start_num, end_num))
+}
+
 #[derive(Debug, Clone)]
 pub struct Grid<T> {
     data: Vec<Vec<T>>,
