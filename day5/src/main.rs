@@ -12,15 +12,15 @@ fn solve_part1(input: &str) -> i64 {
         _ => panic!("expected exactly two sections separated by a blank line"),
     };
 
-    let ranges: Vec<(u64, u64)> = ranges_str
+    let ranges: Vec<(i64, i64)> = ranges_str
         .lines()
-        .filter_map(parse_range_bounds::<u64>)
+        .filter_map(parse_range_bounds::<i64>)
         .collect();
 
-    let mut values: Vec<u64> = items_str
+    let mut values: Vec<i64> = items_str
         .lines()
         .filter(|line| !line.is_empty())
-        .map(|line| line.parse::<u64>().unwrap())
+        .map(|line| line.parse::<i64>().unwrap())
         .collect();
 
     let mut fresh_count = 0;
@@ -43,14 +43,14 @@ fn solve_part1(input: &str) -> i64 {
 // Walk through them and fold in or extend the range.
 // If we hit a gap then we start a new range.
 fn solve_part2(input: &str) -> i64 {
-    let mut ranges: Vec<(u64, u64)> = input
+    let mut ranges: Vec<(i64, i64)> = input
         .lines()
-        .filter_map(parse_range_bounds::<u64>)
+        .filter_map(parse_range_bounds::<i64>)
         .collect();
 
     ranges.sort_by_key(|(start, _)| *start);
 
-    let mut merged: Vec<(u64, u64)> = Vec::new();
+    let mut merged: Vec<(i64, i64)> = Vec::new();
 
     for (start, end) in ranges {
         if let Some((_, last_end)) = merged.last_mut() {
@@ -66,10 +66,7 @@ fn solve_part2(input: &str) -> i64 {
         }
     }
 
-    merged
-        .iter()
-        .map(|(start, end)| (*end as i64) - (*start as i64) + 1)
-        .sum()
+    merged.iter().map(|(start, end)| *end - *start + 1).sum()
 }
 
 fn solve(input: &str) -> (i64, i64) {
