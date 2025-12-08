@@ -47,6 +47,31 @@ pub fn parse_range_bounds<T: std::str::FromStr>(s: &str) -> Option<std::ops::Ran
     Some(start_num..=end_num)
 }
 
+/// Transpose a rectangular matrix of rows into columns.
+///
+/// Input shape:  rows: &[Vec<T>]   (N rows, M columns)
+/// Output shape: Vec<Vec<T>>       (M rows, N columns)
+///
+/// Example:
+///     [ [1,2,3],
+///       [4,5,6] ]  becomes
+///     [ [1,4],
+///       [2,5],
+///       [3,6] ]
+///
+/// Works for any `T: Clone`. All input rows must have the same length.
+pub fn transpose_matrix<T: Clone>(rows: &[Vec<T>]) -> Vec<Vec<T>> {
+    if rows.is_empty() {
+        return Vec::new();
+    }
+
+    let cols = rows[0].len();
+
+    (0..cols)
+        .map(|c| rows.iter().map(|row| row[c].clone()).collect())
+        .collect()
+}
+
 #[derive(Debug, Clone)]
 pub struct Grid<T> {
     data: Vec<Vec<T>>,
