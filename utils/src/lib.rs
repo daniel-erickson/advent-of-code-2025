@@ -175,6 +175,25 @@ impl<T> std::ops::Index<usize> for Grid<T> {
     }
 }
 
+impl<T: std::fmt::Display> Grid<T> {
+    pub fn pretty_print(&self) {
+        for row in &self.data {
+            for cell in row {
+                print!("{cell}");
+            }
+            println!();
+        }
+    }
+}
+
+impl<T: Clone> Grid<T> {
+    /// Create a grid of `rows` × `cols`, filled with `value`.
+    pub fn filled(rows: usize, cols: usize, value: T) -> Self {
+        let data = vec![vec![value; cols]; rows];
+        Self { data }
+    }
+}
+
 impl<T> std::ops::IndexMut<usize> for Grid<T> {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.data[index]
