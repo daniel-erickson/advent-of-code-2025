@@ -204,3 +204,241 @@ pub fn parse_char_grid(input: &str) -> Grid<char> {
     let data: Vec<Vec<char>> = input.lines().map(|line| line.chars().collect()).collect();
     Grid::new(data)
 }
+
+use std::fmt;
+use std::ops::{Add, Div, Mul, Sub};
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct Rational {
+    pub num: i64,
+    pub den: i64,
+}
+
+impl Rational {
+    pub fn new(num: i64, den: i64) -> Self {
+        assert!(den != 0, "denominator cannot be zero");
+        let mut n = num;
+        let mut d = den;
+        if d < 0 {
+            n = -n;
+            d = -d;
+        }
+        let g = gcd(n, d);
+        Rational {
+            num: n / g,
+            den: d / g,
+        }
+    }
+
+    pub fn from_i64(n: i64) -> Self {
+        Rational { num: n, den: 1 }
+    }
+
+    pub fn zero() -> Self {
+        Rational { num: 0, den: 1 }
+    }
+
+    pub fn one() -> Self {
+        Rational { num: 1, den: 1 }
+    }
+
+    pub fn is_zero(&self) -> bool {
+        self.num == 0
+    }
+}
+
+fn gcd(mut a: i64, mut b: i64) -> i64 {
+    // handle negatives
+    if a < 0 {
+        a = -a;
+    }
+    if b < 0 {
+        b = -b;
+    }
+    while b != 0 {
+        let r = a % b;
+        a = b;
+        b = r;
+    }
+    if a == 0 { 1 } else { a }
+}
+
+impl fmt::Debug for Rational {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.den == 1 {
+            write!(f, "{}", self.num)
+        } else {
+            write!(f, "{}/{}", self.num, self.den)
+        }
+    }
+}
+
+// a + b
+impl Add for Rational {
+    type Output = Rational;
+
+    fn add(self, rhs: Rational) -> Rational {
+        Rational::new(self.num * rhs.den + rhs.num * self.den, self.den * rhs.den)
+    }
+}
+
+// a - b
+impl Sub for Rational {
+    type Output = Rational;
+
+    fn sub(self, rhs: Rational) -> Rational {
+        Rational::new(self.num * rhs.den - rhs.num * self.den, self.den * rhs.den)
+    }
+}
+
+// a * b
+impl Mul for Rational {
+    type Output = Rational;
+
+    fn mul(self, rhs: Rational) -> Rational {
+        Rational::new(self.num * rhs.num, self.den * rhs.den)
+    }
+}
+
+// a / b
+impl Div for Rational {
+    type Output = Rational;
+
+    fn div(self, rhs: Rational) -> Rational {
+        assert!(rhs.num != 0, "division by zero rational");
+        Rational::new(self.num * rhs.den, self.den * rhs.num)
+    }
+}
+
+pub fn gaussian_elimination_rational(
+    mut a: Vec<Vec<Rational>>,
+    mut b: Vec<Rational>,
+) -> Option<Vec<Rational>> {
+    let n = a.len();
+    assert_eq!(n, b.len(), "matrix and vector size mismatch");
+    for row in &a {
+        assert_eq!(row.len(), n, "matrix must be square");
+    }
+
+    for col in 0..n {
+        let mut pivot_row: Option<usize> = None;
+        for row in col..n {
+            if !a[row][col].is_zero() {
+                pivot_row = Some(row);
+                break;
+            }
+        }
+
+        let pivot_row = match pivot_row {
+            Some(r) => r,
+            None => {
+                return None;
+            }
+        };
+
+        if pivot_row != col {
+            a.swap(col, pivot_row);
+            b.swap(col, pivot_row);
+        }
+
+        let pivot = a[col][col];
+        for j in col..n {
+            a[col][j] = a[col][j] / pivot;
+        }
+        b[col] = b[col] / pivot;
+
+        for row in (col + 1)..n {
+            let factor = a[row][col];
+            if factor.is_zero() {
+                continue;
+            }
+            for j in col..n {
+                a[row][j] = a[row][j] - factor * a[col][j];
+            }
+            b[row] = b[row] - factor * b[col];
+        }
+    }
+
+    let mut x = vec![Rational::zero(); n];
+    for i in (0..n).rev() {
+        if a[i][i].is_zero() {
+            if !b[i].is_zero() {
+                return None;
+            } else {
+                return None;
+            }
+        }
+
+        let mut sum = b[i];
+        for j in (i + 1)..n {
+            sum = sum - a[i][j] * x[j];
+        }
+        x[i] = sum / a[i][i];
+    }
+
+    Some(x)
+}
+
+pub fn rref(mut mat: Vec<Vec<Rational>>) -> (Vec<Vec<Rational>>, Vec<Option<usize>>) {
+    let rows = mat.len();
+    if rows == 0 {
+        return (mat, Vec::new());
+    }
+    let cols = mat[0].len();
+    for r in &mat {
+        assert_eq!(
+            r.len(),
+            cols,
+            "all rows must have the same number of columns"
+        );
+    }
+
+    let mut pivot_row = 0usize;
+    let mut pivot_cols: Vec<Option<usize>> = vec![None; rows];
+
+    for col in 0..cols {
+        if pivot_row >= rows {
+            break;
+        }
+
+        let mut sel: Option<usize> = None;
+        for r in pivot_row..rows {
+            if !mat[r][col].is_zero() {
+                sel = Some(r);
+                break;
+            }
+        }
+
+        let row = match sel {
+            Some(r) => r,
+            None => continue,
+        };
+
+        if row != pivot_row {
+            mat.swap(row, pivot_row);
+        }
+
+        let pivot_val = mat[pivot_row][col];
+        for c in col..cols {
+            mat[pivot_row][c] = mat[pivot_row][c] / pivot_val;
+        }
+
+        for r in 0..rows {
+            if r == pivot_row {
+                continue;
+            }
+            let factor = mat[r][col];
+            if factor.is_zero() {
+                continue;
+            }
+            for c in col..cols {
+                mat[r][c] = mat[r][c] - factor * mat[pivot_row][c];
+            }
+        }
+
+        pivot_cols[pivot_row] = Some(col);
+        pivot_row += 1;
+    }
+
+    (mat, pivot_cols)
+}
