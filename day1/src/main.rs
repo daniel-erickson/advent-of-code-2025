@@ -129,11 +129,15 @@ fn load_directions(filename: &str) -> Result<Vec<Direction>, std::io::Error> {
 }
 
 fn main() {
+    use std::time::Instant;
+
     println!("Loading directions from ./inputs/day1.txt");
 
     match load_directions("./inputs/day1.txt") {
         Ok(directions) => {
             println!("Successfully loaded {} directions:", directions.len());
+
+            let start = Instant::now();
 
             let mut rotation = Rotation::starting_at(50);
 
@@ -141,8 +145,11 @@ fn main() {
                 rotation.rotate(direction);
             }
 
+            let duration = start.elapsed();
+
             println!("Exact landings on zero: {}", rotation.exact_landings);
             println!("Total times pointing at zero: {}", rotation.zero_hits);
+            println!("Execution time: {:?}", duration);
         }
         Err(e) => {
             eprintln!("Error loading directions: {}", e);

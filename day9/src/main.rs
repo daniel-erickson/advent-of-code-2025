@@ -222,7 +222,7 @@ fn solve_part2(input: &str) -> i64 {
     }
 
     // Nice debug print :D
-    grid.pretty_print();
+    // grid.pretty_print();
 
     best_area
 }

@@ -1,9 +1,5 @@
-/// THIS FILE IS A MESS, STILL NEED TO SOLVE PART B
-use std::{
-    collections::{HashMap, HashSet, VecDeque},
-    time::Instant,
-};
-use utils::{Rational, gaussian_elimination_rational, read_input, rref};
+use std::{collections::VecDeque, time::Instant};
+use utils::{read_input, rref, Rational};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Indicator {
@@ -136,38 +132,7 @@ struct Machine2 {
     buttons: Vec<Vec<usize>>,
 }
 
-// impl Machine2 {
-//     pub fn print_linear_system(&self) {
-//         let d = self.target.len(); // number of counters
-//         let m = self.buttons.len(); // number of buttons
-
-//         println!("Linear system A * x = b");
-//         println!("Counters (d) = {}", d);
-//         println!("Buttons  (m) = {}", m);
-//         println!();
-
-//         for i in 0..d {
-//             let mut terms = Vec::new();
-
-//             for j in 0..m {
-//                 if self.buttons[j].contains(&i) {
-//                     terms.push(format!("x{}", j));
-//                 }
-//             }
-
-//             if terms.is_empty() {
-//                 // No button affects this counter.
-//                 // Equation is simply "0 = target[i]".
-//                 println!("Eq {:02}: 0 = {}", i, self.target[i]);
-//             } else {
-//                 println!("Eq {:02}: {} = {}", i, terms.join(" + "), self.target[i]);
-//             }
-//         }
-
-//         println!();
-//     }
-// }
-
+/// Note for anyyone reading, I got some serious help from chatgpt to implement the solver.
 impl Machine2 {
     /// Build the linear system A * x = b for this machine.
     ///
@@ -196,11 +161,6 @@ impl Machine2 {
             .collect();
 
         (a, b)
-    }
-
-    pub fn solve_linear_system(&self) -> Option<Vec<Rational>> {
-        let (a, b) = self.build_linear_system();
-        gaussian_elimination_rational(a, b)
     }
 
     pub fn rref_augmented(&self) -> (Vec<Vec<Rational>>, Vec<Option<usize>>) {
@@ -295,6 +255,186 @@ fn parse_machine2(line: &str) -> Machine2 {
     Machine2 { target, buttons }
 }
 
+impl Machine2 {
+    pub fn min_presses_from_rref(
+        &self,
+        rref_mat: &[Vec<Rational>],
+        pivot_cols: &[Option<usize>],
+    ) -> Option<i64> {
+        // 1. Determine how many variables we have (buttons)
+        let m = self.buttons.len();
+        let rows = rref_mat.len();
+        if rows == 0 {
+            return Some(0); // degenerate
+        }
+
+        // 2. Which columns are pivots, which are free?
+        // pivot_row_for_col[j] = Some(row) if x_j is a pivot
+        let mut pivot_row_for_col = vec![None; m];
+        for (row, p) in pivot_cols.iter().enumerate() {
+            if let Some(col) = p {
+                if *col < m {
+                    pivot_row_for_col[*col] = Some(row);
+                }
+            }
+        }
+
+        let mut free_cols = Vec::new();
+        for j in 0..m {
+            if pivot_row_for_col[j].is_none() {
+                free_cols.push(j);
+            }
+        }
+        let num_params = free_cols.len();
+
+        // 3. Build Expr for each x_j: x_j = constant + Σ coeff_k * param_k
+        // param k corresponds to free_cols[k].
+        #[derive(Clone)]
+        struct Expr {
+            coeffs: Vec<Rational>, // len = num_params
+            constant: Rational,
+        }
+
+        // Initialize all exprs to 0
+        let mut exprs: Vec<Expr> = (0..m)
+            .map(|_| Expr {
+                coeffs: vec![Rational::zero(); num_params],
+                constant: Rational::zero(),
+            })
+            .collect();
+
+        // Free variables: x_{free_cols[k]} = param_k
+        for (k, &col) in free_cols.iter().enumerate() {
+            exprs[col].coeffs[k] = Rational::one();
+            exprs[col].constant = Rational::zero();
+        }
+
+        // Helper: expr_p -= factor * expr_other
+        impl Expr {
+            fn sub_scaled(&mut self, other: &Expr, factor: Rational) {
+                for i in 0..self.coeffs.len() {
+                    self.coeffs[i] = self.coeffs[i] - factor * other.coeffs[i];
+                }
+                self.constant = self.constant - factor * other.constant;
+            }
+        }
+
+        let last_col = m; // augmented [A|b], so b is at column m
+
+        // For each pivot row, solve for that pivot variable in terms of free vars
+        for (row, p) in pivot_cols.iter().enumerate() {
+            let Some(pivot_col) = p else { continue };
+            let pivot_col = *pivot_col;
+            if pivot_col >= m {
+                continue;
+            }
+
+            let rhs = rref_mat[row][last_col];
+            let mut expr_p = Expr {
+                coeffs: vec![Rational::zero(); num_params],
+                constant: rhs,
+            };
+
+            // subtract contributions from free variables
+            for (k, &free_col) in free_cols.iter().enumerate() {
+                let coeff = rref_mat[row][free_col];
+                if coeff.is_zero() {
+                    continue;
+                }
+                // x_p = rhs - coeff * x_free
+                expr_p.sub_scaled(&exprs[free_col], coeff);
+            }
+
+            exprs[pivot_col] = expr_p;
+        }
+
+        // 4. We now have x_j(params) = exprs[j].
+        //    Next, do a bounded integer search over params to find the min sum of presses.
+
+        // simple bound: params in [0, max_target]
+        let max_target = self.target.iter().copied().max().unwrap_or(0).max(0) as i64;
+
+        if num_params == 0 {
+            // fully determined, just evaluate once
+            let x_vals = (0..m)
+                .map(|j| exprs[j].constant.clone())
+                .collect::<Vec<_>>();
+            let presses = rational_vec_to_presses(&x_vals)?;
+            let sum: i64 = presses.iter().sum();
+            return Some(sum);
+        }
+
+        // generic recursive search over all param combinations
+        let mut best_sum: Option<i64> = None;
+
+        fn rational_vec_to_presses(vals: &[Rational]) -> Option<Vec<i64>> {
+            let mut out = Vec::with_capacity(vals.len());
+            for v in vals {
+                // must be >= 0
+                if v.num < 0 {
+                    return None;
+                }
+                // must be integer → denominator == 1
+                if v.den != 1 {
+                    return None;
+                }
+                out.push(v.num);
+            }
+            Some(out)
+        }
+
+        // recursive search over parameters
+        fn search_params(
+            param_idx: usize,
+            params: &mut [i64],
+            exprs: &[Expr],
+            max_target: i64,
+            best_sum: &mut Option<i64>,
+        ) {
+            let num_params = params.len();
+            if param_idx == num_params {
+                // evaluate all x_j
+                let m = exprs.len();
+                let mut vals = Vec::with_capacity(m);
+                for expr in exprs {
+                    let mut v = expr.constant;
+                    for (k, &p) in params.iter().enumerate() {
+                        if !expr.coeffs[k].is_zero() && p != 0 {
+                            v = v + expr.coeffs[k] * Rational::from_i64(p);
+                        }
+                    }
+                    vals.push(v);
+                }
+
+                let presses = match rational_vec_to_presses(&vals) {
+                    Some(p) => p,
+                    None => return,
+                };
+
+                let sum: i64 = presses.iter().sum();
+                if let Some(cur_best) = best_sum {
+                    if sum >= *cur_best {
+                        return;
+                    }
+                }
+                *best_sum = Some(sum);
+                return;
+            }
+
+            for v in 0..=max_target {
+                params[param_idx] = v;
+                // optional: you can add very cheap early pruning here if you like
+                search_params(param_idx + 1, params, exprs, max_target, best_sum);
+            }
+        }
+
+        let mut params = vec![0i64; num_params];
+        search_params(0, &mut params, &exprs, max_target, &mut best_sum);
+
+        best_sum
+    }
+}
+
 fn solve_part2(input: &str) -> i64 {
     let machines: Vec<Machine2> = input
         .lines()
@@ -306,7 +446,6 @@ fn solve_part2(input: &str) -> i64 {
     for (idx, m) in machines.iter().enumerate() {
         println!("Machine {idx}:");
         m.print_linear_system();
-        // let answer = m.rref_augmented();
 
         let (rref_mat, pivot_cols) = m.rref_augmented();
 
@@ -316,8 +455,10 @@ fn solve_part2(input: &str) -> i64 {
         }
         println!("pivot_cols = {:?}", pivot_cols);
 
-        //println!("answer {:?}", answer);
-        let ans = 0;
+        let ans = m
+            .min_presses_from_rref(&rref_mat, &pivot_cols)
+            .expect("no non-negative integer solution for this machine");
+
         total += ans;
         println!("  min presses = {:?}\n", ans);
     }
@@ -354,8 +495,6 @@ mod tests {
     const TEST_INPUT: &str = r#"[.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {3,5,4,7}
     [...#.] (0,2,3,4) (2,3) (0,4) (0,1,2) (1,2,3,4) {7,5,12,7,2}
     [.###.#] (0,1,2,3,4) (0,3,4) (0,1,2,4,5) (1,2) {10,11,11,5,10,5}"#;
-
-    //  const TEST_INPUT: &str = r#"[.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {3,5,4,7}"#;
 
     #[test]
     fn test_part1() {
